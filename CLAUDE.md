@@ -90,8 +90,9 @@ audience lost it by adding exactly these. Restraint is the product.
   model call.
 - Container terminology: the product is Piles, but a time container is still
   called a "session" in-app. Unresolved.
-- The "avoided ×N" badge is seeded data with no real counter behind it. Wire it
-  honestly or cut it.
+- The "avoided ×N" badge is now wired to a real counter: it increments when a
+  task is skipped or pushed to "not today" during a run, and resets to 0 when
+  the task is done. The seeded values remain so the demo shows it immediately.
 - The task sheet's pile picker drifts toward a "move to folder" dialog as piles
   multiply. Watch it.
 
