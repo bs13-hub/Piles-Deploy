@@ -226,6 +226,11 @@
     border:1px solid #CDE7E1; border-radius:8px; padding:4px 9px; cursor:pointer;}
   .nudge:active{transform:scale(.96);}
   .nudge:disabled{opacity:.38; cursor:default;}
+  .pocketrow{display:flex; gap:7px;}
+  .pocketbtn{flex:1; font-family:inherit; font-size:14px; font-weight:700; color:var(--accent-ink);
+    background:var(--accent-soft); border:1px solid #CDE7E1; border-radius:12px; padding:12px 2px; cursor:pointer;}
+  .pocketbtn:active{transform:scale(.96);}
+  .leftout-card{border-left:3px solid #E4B57E;}
 </style>
 </head>
 <body>
@@ -622,6 +627,12 @@ function renderToday(){
   let html = '<div class="spread" style="margin-bottom:14px"><div><h1>Ready</h1>' +
     '<div class="sub">Mon, Aug 3 · simulated clock <b>'+fmtClock(state.clock)+'</b></div></div></div>';
 
+  html += '<div class="card"><b style="font-size:15px">Got a pocket of time?</b>' +
+    '<div class="sub" style="margin:2px 0 10px">Tell me how long — I’ll pull what fits from The Dump.</div>' +
+    '<div class="pocketrow">' +
+    [20,30,45,60,90].map(m=>'<button class="pocketbtn" onclick="startPocket('+m+')">'+m+'m</button>').join('') +
+    '</div></div>';
+
   const nxt = nextSession();
   const gap = findGapSuggestion();
   const items = [];
@@ -819,6 +830,13 @@ function saveSession(){
   go("fill", sp.id);
   toast(draft.id ? "Session updated." : "Session created. Fill it, or let it build itself.");
 }
+function startPocket(mins){ // calendar → pocket → what fits: you bring the time, it brings the fit
+  const sp = {id:"s"+(uid++), name:mins+"-min pocket", start:state.clock, end:state.clock+mins,
+    picked:[], plan:null, status:"idle", homePile:"dump", custom:true};
+  state.sprints.push(sp);
+  go("fill", sp.id);
+  toast(mins+"-min pocket, drawing from The Dump. Build it, or add by hand.");
+}
 function deleteSession(){
   if (!draft || !draft.id) return;
   state.sprints = state.sprints.filter(s=>s.id!==draft.id);
@@ -997,14 +1015,14 @@ function openCapture(){
   scrim.innerHTML = '<div class="sheet fadein"><h3>Dump a task</h3>' +
     '<div class="sub" style="margin-bottom:10px">Straight into The Dump. Sort it later, or never.</div>' +
     '<div class="caprow">' +
-      '<input id="capin" placeholder="e.g. vacuum, water plants, call the vet" autocomplete="off" ' +
-        'style="border:1.5px solid var(--line);border-radius:11px;padding:11px;font-size:15px;font-family:inherit;background:#fff" ' +
-        'onkeydown="if(event.key===\'Enter\')captureCommit()">' +
+      '<textarea id="capin" rows="2" placeholder="e.g. vacuum, water plants, call the vet — or paste your whole list" autocomplete="off" ' +
+        'style="flex:1;border:1.5px solid var(--line);border-radius:11px;padding:11px;font-size:15px;font-family:inherit;background:#fff;resize:none;line-height:1.35" ' +
+        'onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();captureCommit();}"></textarea>' +
       (speech ? '<button class="mic" id="capmic" onclick="capMic()" aria-label="Dictate">🎙️</button>' : '') +
     '</div>' +
     '<div class="sub muted" style="margin:8px 0 12px">'+(speech
-        ? 'Rattle off a few — tap 🎙️ and say “vacuum, water plants, and call the vet.” Commas or “and” split them.'
-        : 'List a few with commas or “and” — they all drop in. Your keyboard’s mic works too.')+'</div>' +
+        ? 'Paste a list from TickTick, Reminders, anywhere — one per line splits into separate tasks. Or tap 🎙️ and reel a few off; commas and “and” split too.'
+        : 'Paste your list from any app — one per line, or comma-separated — and they all drop in. Keyboard mic works too.')+'</div>' +
     '<button class="btn primary" style="width:100%" onclick="captureCommit()">Add to The Dump</button></div>';
   document.body.appendChild(scrim);
   setTimeout(()=>{ const el=$("#capin"); if(el) el.focus(); }, 60);
@@ -1150,6 +1168,19 @@ function renderFill(spId){
       '<button class="btn small subtle" onclick="dismissUrgent(\''+sp.id+'\',\''+t.id+'\')">Leave it</button></div></div>';
   });
 
+  // "what not to commit to" — built here so it can sit right under the plan
+  const blocked = allSugg.filter(x=>!x.elig.ok);
+  let leftOutHtml = "";
+  if (blocked.length || (sp.leftFit||[]).length){
+    leftOutHtml = '<div class="section-ttl">NOT TONIGHT · ON PURPOSE</div><div class="card leftout-card">';
+    const listed = new Set();
+    blocked.forEach(({t, elig})=>{ listed.add(t.id);
+      leftOutHtml += '<div class="leftout"><b>'+esc(t.name)+'</b> · '+esc(elig.why)+'</div>'; });
+    (sp.leftFit||[]).forEach(({t, why})=>{ if (listed.has(t.id) || sp.picked.includes(t.id)) return;
+      leftOutHtml += '<div class="leftout"><b>'+esc(t.name)+'</b> · '+esc(why)+'</div>'; });
+    leftOutHtml += '</div>';
+  }
+
   if (sp.picked.length){
     if (!sp.plan) sp.plan = sequencePlan(sp);
     html += '<div class="section-ttl">THE PLAN · IN ORDER</div><div class="card">';
@@ -1176,10 +1207,10 @@ function renderFill(spId){
         '</div><button class="addbtn on" title="remove" onclick="event.stopPropagation();toggleTask(\''+sp.id+'\',\''+id+'\')">✓</button></div>';
     });
     html += '</div><button class="btn primary" onclick="startRun(\''+sp.id+'\')">▶ Start session</button>';
+    html += leftOutHtml; // the refusal, right where the plan is
   }
 
   const fits = allSugg.filter(x=>x.elig.ok && !(x.t.deadline && x.t.pile!==sp.homePile));
-  const blocked = allSugg.filter(x=>!x.elig.ok);
   const fitsHome = fits.filter(x=>x.t.pile===sp.homePile);
   const fitsOther = fits.filter(x=>x.t.pile!==sp.homePile);
   const rowFor = ({t})=>{
@@ -1198,15 +1229,7 @@ function renderFill(spId){
   if (fitsOther.length){
     html += '<div class="section-ttl">ELSEWHERE · ADD ON PURPOSE</div><div class="card">' + fitsOther.map(rowFor).join("") + '</div>';
   }
-  if (blocked.length || (sp.leftFit||[]).length){
-    html += '<div class="section-ttl">LEFT OUT, ON PURPOSE</div><div class="card">';
-    const listed = new Set();
-    blocked.forEach(({t, elig})=>{ listed.add(t.id);
-      html += '<div class="leftout"><b>'+esc(t.name)+'</b> · '+esc(elig.why)+'</div>'; });
-    (sp.leftFit||[]).forEach(({t, why})=>{ if (listed.has(t.id) || sp.picked.includes(t.id)) return;
-      html += '<div class="leftout"><b>'+esc(t.name)+'</b> · '+esc(why)+'</div>'; });
-    html += '</div>';
-  }
+  if (!sp.picked.length) html += leftOutHtml; // empty session: still show it, at the bottom
   $("#app").innerHTML = html;
 }
 function dismissUrgent(spId, taskId){
