@@ -192,7 +192,7 @@
   @keyframes ck{0%{opacity:0; transform:scale(.9);} 60%{opacity:1; transform:scale(1.04);} 100%{transform:scale(1);}}
 
   /* ---------- chairdrobe (the ADHD monument) ---------- */
-  .cd{width:190px; height:172px; display:block; margin:0 auto 10px;}
+  .cd{width:206px; height:168px; display:block; margin:0 auto 10px;}
   .cd .drop{transform-box:fill-box; transform-origin:center;
     animation:cd-toss 5.6s cubic-bezier(.45,.85,.35,1) infinite both;}
   @keyframes cd-toss{
@@ -562,19 +562,34 @@ function renderIntro(){
   const d = document.createElement("div");
   d.className = "overlay"; d.id = "intro";
   d.innerHTML = '<div class="inner fadein">' +
-    '<svg class="cd" viewBox="0 0 200 180" role="img" aria-label="A desk chair with a pile of clothes tossed on top">' +
-      '<ellipse cx="100" cy="166" rx="62" ry="8" fill="#000" opacity=".06"/>' +
-      '<rect x="72" y="26" width="58" height="72" rx="16" fill="#3A3F46"/>' +
-      '<rect x="58" y="100" width="86" height="18" rx="9" fill="#3A3F46"/>' +
-      '<rect x="95" y="118" width="12" height="30" rx="4" fill="#3A3F46"/>' +
-      '<g stroke="#3A3F46" stroke-width="7" stroke-linecap="round"><line x1="101" y1="146" x2="64" y2="162"/><line x1="101" y1="146" x2="101" y2="166"/><line x1="101" y1="146" x2="138" y2="162"/></g>' +
-      '<g fill="#2C3036"><circle cx="62" cy="164" r="5"/><circle cx="101" cy="168" r="5"/><circle cx="140" cy="164" r="5"/></g>' +
-      '<g class="drop" style="--dx:6px;--r:8deg;animation-delay:.1s"><ellipse cx="101" cy="40" rx="40" ry="22" fill="#C56A1E"/><rect x="126" y="42" width="14" height="40" rx="7" fill="#C56A1E" transform="rotate(12 133 62)"/></g>' +
-      '<g class="drop" style="--dx:0px;--r:-6deg;animation-delay:.5s"><ellipse cx="100" cy="104" rx="50" ry="22" fill="#0E7A6E"/></g>' +
-      '<g class="drop" style="--dx:8px;--r:5deg;animation-delay:1s"><ellipse cx="110" cy="90" rx="38" ry="20" fill="#E3F1EE"/></g>' +
-      '<g class="drop" style="--dx:-12px;--r:-16deg;animation-delay:1.5s"><ellipse cx="72" cy="98" rx="28" ry="17" fill="#5B5BD6"/><rect x="52" y="98" width="13" height="42" rx="6" fill="#5B5BD6" transform="rotate(-22 58 118)"/></g>' +
-      '<g class="drop" style="--dx:-6px;--r:-10deg;animation-delay:2s"><ellipse cx="90" cy="82" rx="26" ry="14" fill="#C6443B"/></g>' +
-      '<g class="drop" style="--dx:10px;--r:12deg;animation-delay:2.6s"><ellipse cx="116" cy="76" rx="22" ry="12" fill="#8FD3C6"/></g>' +
+    '<svg class="cd" viewBox="0 0 220 180" role="img" aria-label="A wooden chair with a neat pile of clothes to wear again">' +
+      '<ellipse cx="110" cy="164" rx="60" ry="7" fill="#000" opacity=".06"/>' +
+      // left plant
+      '<g><ellipse cx="55" cy="120" rx="6" ry="12" fill="#8CAE6E" transform="rotate(-24 55 120)"/>' +
+        '<ellipse cx="69" cy="118" rx="6" ry="12" fill="#7C9A63" transform="rotate(22 69 118)"/>' +
+        '<ellipse cx="62" cy="112" rx="6" ry="13" fill="#93B478"/>' +
+        '<path d="M54 138 h16 l-2 20 h-12 z" fill="#C6714A"/></g>' +
+      // right plant
+      '<g><ellipse cx="160" cy="122" rx="6" ry="12" fill="#8CAE6E" transform="rotate(22 160 122)"/>' +
+        '<ellipse cx="150" cy="120" rx="6" ry="12" fill="#7C9A63" transform="rotate(-22 150 120)"/>' +
+        '<ellipse cx="155" cy="114" rx="6" ry="13" fill="#93B478"/>' +
+        '<path d="M147 140 h16 l-2 18 h-12 z" fill="#D49B43"/></g>' +
+      // chair: backrest + seat + splayed mid-century legs
+      '<rect x="90" y="40" width="44" height="58" rx="16" fill="#A9713F"/>' +
+      '<rect x="98" y="49" width="28" height="40" rx="11" fill="#B5824F"/>' +
+      '<rect x="78" y="96" width="68" height="15" rx="7" fill="#A9713F"/>' +
+      '<rect x="78" y="108" width="68" height="5" rx="2.5" fill="#875529"/>' +
+      '<g stroke="#875529" stroke-width="5" stroke-linecap="round">' +
+        '<line x1="86" y1="111" x2="72" y2="156"/><line x1="138" y1="111" x2="152" y2="156"/>' +
+        '<line x1="96" y1="111" x2="92" y2="150"/><line x1="128" y1="111" x2="132" y2="150"/></g>' +
+      // neat folded stack — drops in bottom-first and piles up
+      '<g class="drop" style="--dx:-4px;--r:-3deg;animation-delay:.2s"><rect x="82" y="84" width="56" height="14" rx="4" fill="#3C4A6B"/><rect x="86" y="88" width="14" height="3" rx="1.5" fill="#556184"/></g>' +
+      '<g class="drop" style="--dx:5px;--r:3deg;animation-delay:.75s"><rect x="85" y="72" width="50" height="13" rx="4" fill="#C0603A"/><rect x="89" y="76" width="13" height="3" rx="1.5" fill="#D37C56"/></g>' +
+      '<g class="drop" style="--dx:-3px;--r:-2deg;animation-delay:1.3s"><rect x="88" y="61" width="44" height="12" rx="4" fill="#F1EDE3"/><rect x="92" y="65" width="12" height="3" rx="1.5" fill="#D9D2C3"/></g>' +
+      '<g class="drop" style="--dx:4px;--r:4deg;animation-delay:1.85s"><rect x="94" y="52" width="32" height="9" rx="3" fill="#D49B43"/></g>' +
+      // sparkles
+      '<g fill="#C56A1E"><path d="M172 58 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2 z"/>' +
+        '<path d="M46 92 l1.5 4.5 4.5 1.5 -4.5 1.5 -1.5 4.5 -1.5 -4.5 -4.5 -1.5 4.5 -1.5 z"/></g>' +
     '</svg>' +
     '<h2>Piles</h2><div class="sub" style="margin-bottom:14px">an early build · your changes are saved on this device</div>' +
     '<div class="step"><div class="n">1</div><p><b>Dump tasks in.</b> Everything lands in The Dump. No projects, no tags, no filing. Make your own piles when it helps, or never.</p></div>' +
@@ -953,13 +968,23 @@ function addToDump(name){ // shared by the Piles bar and the always-on capture s
   state.tasks.push(T(name.replace(/\s*\d+\s*m$/i,"").trim(), est, "dump"));
   return est;
 }
+// batch capture: one dump — typed or spoken — splits into several tasks
+function splitTasks(text){
+  return (text||"")
+    .split(/\s*(?:,|;|\/|&|\n|\band\b|\bthen\b|\balso\b)\s*/i)
+    .map(s=>s.trim())
+    .filter(Boolean);
+}
 function quickAdd(){
-  const inp = $("#qa"); const name = (inp.value||"").trim();
-  if (!name){ inp.focus(); return; }
-  const est = addToDump(name);
+  const inp = $("#qa"); const raw = (inp.value||"").trim();
+  if (!raw){ inp.focus(); return; }
+  const names = splitTasks(raw); let est = 0;
+  names.forEach(n=>{ est = addToDump(n); });
   inp.value = "";
   renderPiles();
-  toast('In The Dump · guessed '+est+' min (tap the chip to adjust or re-pile)');
+  toast(names.length===1
+    ? ('In The Dump · guessed '+est+' min (tap the chip to adjust or re-pile)')
+    : (names.length+' tasks in The Dump'));
 }
 
 /* ---------- always-on capture (any screen) + voice dictation ---------- */
@@ -972,14 +997,14 @@ function openCapture(){
   scrim.innerHTML = '<div class="sheet fadein"><h3>Dump a task</h3>' +
     '<div class="sub" style="margin-bottom:10px">Straight into The Dump. Sort it later, or never.</div>' +
     '<div class="caprow">' +
-      '<input id="capin" placeholder="e.g. vacuum hallway" autocomplete="off" ' +
+      '<input id="capin" placeholder="e.g. vacuum, water plants, call the vet" autocomplete="off" ' +
         'style="border:1.5px solid var(--line);border-radius:11px;padding:11px;font-size:15px;font-family:inherit;background:#fff" ' +
         'onkeydown="if(event.key===\'Enter\')captureCommit()">' +
       (speech ? '<button class="mic" id="capmic" onclick="capMic()" aria-label="Dictate">🎙️</button>' : '') +
     '</div>' +
     '<div class="sub muted" style="margin:8px 0 12px">'+(speech
-        ? 'Tap 🎙️ to speak it — or use your keyboard’s mic.'
-        : 'Tip: tap your keyboard’s mic to speak it.')+'</div>' +
+        ? 'Rattle off a few — tap 🎙️ and say “vacuum, water plants, and call the vet.” Commas or “and” split them.'
+        : 'List a few with commas or “and” — they all drop in. Your keyboard’s mic works too.')+'</div>' +
     '<button class="btn primary" style="width:100%" onclick="captureCommit()">Add to The Dump</button></div>';
   document.body.appendChild(scrim);
   setTimeout(()=>{ const el=$("#capin"); if(el) el.focus(); }, 60);
@@ -990,12 +1015,13 @@ function closeCapture(){
 }
 function captureCommit(){
   const inp = $("#capin"); if(!inp) return;
-  const name = (inp.value||"").trim();
-  if(!name){ inp.focus(); return; }
-  const est = addToDump(name);
+  const names = splitTasks(inp.value);
+  if(!names.length){ inp.focus(); return; }
+  let est = 0;
+  names.forEach(n=>{ est = addToDump(n); });
   closeCapture();
   render();
-  toast('In The Dump · guessed '+est+' min');
+  toast(names.length===1 ? ('In The Dump · guessed '+est+' min') : (names.length+' tasks dropped in The Dump'));
 }
 function capMic(){
   const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
