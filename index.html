@@ -420,7 +420,7 @@ function sequencePlan(sprint){
   const base = [...starters, ...outside, ...pool, ...anchors];
   starters.forEach(t=>{ why[t.id] = "First, because the machine runs while you do everything else."; });
   outside.forEach((t,i)=>{ why[t.id] = i===0 ? "Batched: one trip outside covers everything out there." : "You're already outside."; });
-  pool.forEach(t=>{ why[t.id] = estOf(t)<=3 ? "Quick win, keeps the momentum up." : "Main block of the session."; });
+  pool.forEach(t=>{ why[t.id] = ""; }); // ordinary tasks carry no reason — only structural placements earn a line
   anchors.forEach(t=>{ why[t.id] = "Last on purpose: it ends the session clean, and nothing after needs you."; });
 
   // place each gated task at the earliest slot where the machine is actually done
@@ -948,11 +948,11 @@ function renderFill(spId){
       (victim ? '<div class="bannerbtns"><button class="btn small subtle" onclick="fixOverflow(\''+sp.id+'\')">Move “'+esc(victim.name)+'” to tomorrow</button></div>' : '') +
       '</div>';
   } else if (filled > target){
-    html += '<div class="meter-label" style="color:var(--amber)">Into the '+buffer+'-minute transition buffer. Doable, but tight.</div>';
+    html += '<div class="meter-label" style="color:var(--amber)">Into your '+buffer+'-min buffer — tight but doable.</div>';
   } else if (filled > 0){
-    html += '<div class="meter-label">'+(target-filled)+' min open · '+buffer+' min kept for transitions.</div>';
+    html += '<div class="meter-label">'+(target-filled)+' min open · '+buffer+'-min buffer</div>';
   } else {
-    html += '<div class="meter-label">'+target+' min usable · '+buffer+' min kept for transitions.</div>';
+    html += '<div class="meter-label">'+target+' min usable · '+buffer+'-min buffer</div>';
   }
   html += '</div>';
 
@@ -983,7 +983,7 @@ function renderFill(spId){
       const startClock = sp.plan.times ? fmtClock(sp.start + (sp.plan.times[id]||0)).replace(/ [AP]M/,"") : "";
       html += '<div class="order-row"><div class="order-num">'+(i+1)+'</div><div class="order-body" style="flex:1">' +
         '<div class="spread"><span class="nm">'+esc(t.name)+'</span><span class="est">'+estOf(t)+'m'+(L?'<span class="learnedtag"> learned</span>':'')+(startClock?' · '+startClock:'')+'</span></div>' +
-        '<div class="why">'+esc(sp.plan.why[id]||"")+'</div>' +
+        (sp.plan.why[id] ? '<div class="why">'+esc(sp.plan.why[id])+'</div>' : '') +
         (t.parallel ? '<div class="par">⟳ runs '+t.parallel.runs+' min in parallel</div>' : '') +
         '</div><button class="addbtn on" title="remove" onclick="event.stopPropagation();toggleTask(\''+sp.id+'\',\''+id+'\')">✓</button></div>';
     });
@@ -1114,7 +1114,7 @@ function renderExecute(){
       '<div class="taskname">'+esc(t.name)+'</div>' +
       '<div class="estline">estimated '+estOf(t)+' min'+(L?' · learned from you':'')+'</div>' +
       '<div class="elapsed" id="elapsed">0:00 elapsed</div>' +
-      '<div class="why2">'+esc(sp.plan.why[t.id]||"")+'</div>' +
+      (sp.plan.why[t.id] ? '<div class="why2">'+esc(sp.plan.why[t.id])+'</div>' : '') +
       (t.after ? '<div class="why2" id="waitnote" style="color:#E8B36A"></div>' : '') + '</div>' +
       '<div class="actions"><button class="btn done-btn" onclick="finishTask(\'done\')">Done ✓</button></div>' +
       '<div class="actions"><button class="btn dim" onclick="finishTask(\'skipped\')">Skip</button>' +
