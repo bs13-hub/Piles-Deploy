@@ -190,11 +190,48 @@
   @keyframes fi{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
   .checkanim{animation:ck .35s ease;}
   @keyframes ck{0%{opacity:0; transform:scale(.9);} 60%{opacity:1; transform:scale(1.04);} 100%{transform:scale(1);}}
+
+  /* ---------- chairdrobe (the ADHD monument) ---------- */
+  .cd{width:190px; height:172px; display:block; margin:0 auto 10px;}
+  .cd .drop{transform-box:fill-box; transform-origin:center;
+    animation:cd-toss 5.6s cubic-bezier(.45,.85,.35,1) infinite both;}
+  @keyframes cd-toss{
+    0%{transform:translate(var(--dx,0px),-150px) rotate(var(--r,-12deg)); opacity:0;}
+    5%{opacity:1;}
+    17%{transform:translate(0,0) rotate(0deg);}
+    21%{transform:translate(0,-6px) rotate(0deg);}
+    25%{transform:translate(0,0) rotate(0deg);}
+    86%{transform:translate(0,0) rotate(0deg); opacity:1;}
+    96%{opacity:0;}
+    100%{transform:translate(var(--dx,0px),-150px) rotate(var(--r,-12deg)); opacity:0;}
+  }
+  @media (prefers-reduced-motion:reduce){ .cd .drop{animation:none;} }
+
+  /* ---------- always-on capture ---------- */
+  #capfab{position:absolute; z-index:40; bottom:76px; right:16px; width:54px; height:54px; border-radius:50%;
+    background:var(--accent); color:#fff; border:none; font-size:30px; line-height:1; cursor:pointer;
+    box-shadow:0 6px 18px rgba(14,122,110,.42); display:none; align-items:center; justify-content:center;}
+  #capfab:active{transform:scale(.94);}
+  .caprow{display:flex; gap:8px; align-items:stretch;}
+  .caprow input{flex:1;}
+  .mic{flex:0 0 auto; width:48px; border:1.5px solid var(--line); border-radius:11px; background:#fff;
+    font-size:20px; cursor:pointer;}
+  .mic.on{background:var(--red-soft); border-color:var(--red); animation:micpulse 1s ease-in-out infinite;}
+  @keyframes micpulse{0%,100%{opacity:1;} 50%{opacity:.5;}}
+
+  /* ---------- parallel-spine controls (wash time + dryer nudge) ---------- */
+  .par{cursor:pointer;}
+  .movectl{margin-top:7px; font-size:12px; color:var(--ink2); display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .nudge{font-family:inherit; font-size:12px; font-weight:600; color:var(--accent-ink); background:var(--accent-soft);
+    border:1px solid #CDE7E1; border-radius:8px; padding:4px 9px; cursor:pointer;}
+  .nudge:active{transform:scale(.96);}
+  .nudge:disabled{opacity:.38; cursor:default;}
 </style>
 </head>
 <body>
 <div id="frame">
   <div id="app"></div>
+  <button id="capfab" onclick="openCapture()" aria-label="Dump a task">＋</button>
   <div id="tabbar"></div>
   <div id="toast"></div>
 </div>
@@ -296,6 +333,15 @@ const TRUTH = {
 const keyOf = t => t.name.toLowerCase();
 const learnedOf = t => state.learned[keyOf(t)];
 const estOf = t => { const L = learnedOf(t); return L ? Math.max(1, Math.round(t.est * L.mult)) : t.est; };
+/* wash/parallel runtime resolves like any other estimate: a typed override wins,
+   else the name hints it (quick vs bulky), else the task's own default. */
+const WASH_HINTS = [
+  [/\b(quick|speedy?|express|rapid|fast)\b/, 25],
+  [/\b(delicate|gentle|hand ?wash|wool)\b/, 40],
+  [/\b(bulky?|heavy|large|comforter|bedding|towels|sheets|duvet|blanket)\b/, 75],
+];
+const washFromName = name => { const n=(name||"").toLowerCase(); for(const [re,m] of WASH_HINTS) if(re.test(n)) return m; return null; };
+const runsOf = t => { if(!t||!t.parallel) return 0; if(t.parallel.userRuns) return t.parallel.userRuns; return washFromName(t.name) || t.parallel.runs || 45; };
 const fmtClock = m => { let h=Math.floor(m/60), mm=m%60, ap=h>=12?"PM":"AM"; h=((h+11)%12)+1; return h+":"+String(mm).padStart(2,"0")+" "+ap; };
 const fmtShort = m => fmtClock(m).replace(/ [AP]M/,"");
 const escAttr = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -353,7 +399,7 @@ function ensureCompanions(sprint){
   // Start laundry picked -> auto-add "Move laundry to dryer" if it fits the sprint length
   const laundry = sprint.picked.map(taskById).find(t=>t && t.parallel);
   let comp = state.tasks.find(t=>t.autoCompanion);
-  if (laundry && durOf(sprint) >= laundry.parallel.runs + 5){
+  if (laundry && durOf(sprint) >= runsOf(laundry) + 5){
     if (!comp){
       comp = T("Move laundry to dryer", 2, "home", {autoCompanion:true, after:laundry.id, where:"laundry"});
       state.tasks.push(comp);
@@ -382,7 +428,7 @@ function autofill(sprint){
   for (const {t, elig} of sugg){
     if (t.pile !== sprint.homePile) continue; // context first: only this sprint's pile auto-fills
     if (!elig.ok) continue; // blocked tasks are explained live in the fill screen
-    const companionCost = (t.parallel && cap >= t.parallel.runs + 5) ? companionEstimate() : 0;
+    const companionCost = (t.parallel && cap >= runsOf(t) + 5) ? companionEstimate() : 0;
     const d = estOf(t) + companionCost;
     if (used + d <= target){ sprint.picked.push(t.id); used += d; }
     else leftFit.push({t, why:"didn't fit: " + d + "m needed, " + Math.max(0,target-used) + "m left after the " + buffer + "m transition buffer"});
@@ -423,17 +469,24 @@ function sequencePlan(sprint){
   pool.forEach(t=>{ why[t.id] = ""; }); // ordinary tasks carry no reason — only structural placements earn a line
   anchors.forEach(t=>{ why[t.id] = "Last on purpose: it ends the session clean, and nothing after needs you."; });
 
-  // place each gated task at the earliest slot where the machine is actually done
+  // place each gated task at the earliest slot where the machine is actually done,
+  // then apply any user "later" nudge — never earlier than the machine can finish
+  let dryerId = null, dryerAtFloor = true, dryerAtEnd = false;
   gated.forEach(g=>{
     const parent = taskById(g.after);
-    const ready = (parent ? estOf(parent) : 0) + ((parent && parent.parallel) ? parent.parallel.runs : 35);
-    let cum = 0, idx = base.length;
+    const ready = (parent ? estOf(parent) : 0) + ((parent && parent.parallel) ? runsOf(parent) : 35);
+    let cum = 0, earliest = base.length;
     for (let i = 0; i < base.length; i++){
-      if (cum >= ready){ idx = i; break; }
+      if (cum >= ready){ earliest = i; break; }
       cum += estOf(base[i]);
     }
+    const idx = Math.min(base.length, earliest + Math.max(0, sprint.dryerNudge||0));
+    sprint.dryerNudge = idx - earliest;   // store the actually-applied offset (clamped legal)
     base.splice(idx, 0, g);
     g._ready = ready;
+    dryerId = g.id;
+    dryerAtFloor = (sprint.dryerNudge === 0);
+    dryerAtEnd = (idx === base.length - 1);
   });
 
   // real timeline: compute start minutes, inserting an explicit wait if the washer isn't done
@@ -459,7 +512,14 @@ function sequencePlan(sprint){
       why[before.id] = "Ends the working part of the session; only the dryer handoff comes after.";
   });
 
-  return {seq: base.map(t=>t.id), why, times, wait};
+  return {seq: base.map(t=>t.id), why, times, wait, dryerId, dryerAtFloor, dryerAtEnd};
+}
+function nudgeDryer(spId, dir){
+  const sp = state.sprints.find(s=>s.id===spId); if(!sp) return;
+  sp.dryerNudge = Math.max(0, (sp.dryerNudge||0) + dir);
+  sp.plan = sequencePlan(sp);   // re-sequences and re-clamps to the legal range
+  render();
+  toast(dir>0 ? "Dryer handoff moved later. Timeline updated." : "Dryer handoff moved earlier.");
 }
 
 /* =============== SIMULATED "ACTUALS" + LEARNING =============== */
@@ -483,6 +543,7 @@ function render(){
   const frame = $("#frame");
   frame.classList.toggle("exec-bg", s.name==="execute");
   $("#tabbar").style.display = (s.name==="today" || s.name==="piles") ? "flex" : "none";
+  $("#capfab").style.display = (state.introSeen && (s.name==="today" || s.name==="piles")) ? "flex" : "none";
   if (s.name==="today")   renderToday();
   if (s.name==="piles")   renderPiles();
   if (s.name==="fill")    renderFill(s.arg);
@@ -501,6 +562,20 @@ function renderIntro(){
   const d = document.createElement("div");
   d.className = "overlay"; d.id = "intro";
   d.innerHTML = '<div class="inner fadein">' +
+    '<svg class="cd" viewBox="0 0 200 180" role="img" aria-label="A desk chair with a pile of clothes tossed on top">' +
+      '<ellipse cx="100" cy="166" rx="62" ry="8" fill="#000" opacity=".06"/>' +
+      '<rect x="72" y="26" width="58" height="72" rx="16" fill="#3A3F46"/>' +
+      '<rect x="58" y="100" width="86" height="18" rx="9" fill="#3A3F46"/>' +
+      '<rect x="95" y="118" width="12" height="30" rx="4" fill="#3A3F46"/>' +
+      '<g stroke="#3A3F46" stroke-width="7" stroke-linecap="round"><line x1="101" y1="146" x2="64" y2="162"/><line x1="101" y1="146" x2="101" y2="166"/><line x1="101" y1="146" x2="138" y2="162"/></g>' +
+      '<g fill="#2C3036"><circle cx="62" cy="164" r="5"/><circle cx="101" cy="168" r="5"/><circle cx="140" cy="164" r="5"/></g>' +
+      '<g class="drop" style="--dx:6px;--r:8deg;animation-delay:.1s"><ellipse cx="101" cy="40" rx="40" ry="22" fill="#C56A1E"/><rect x="126" y="42" width="14" height="40" rx="7" fill="#C56A1E" transform="rotate(12 133 62)"/></g>' +
+      '<g class="drop" style="--dx:0px;--r:-6deg;animation-delay:.5s"><ellipse cx="100" cy="104" rx="50" ry="22" fill="#0E7A6E"/></g>' +
+      '<g class="drop" style="--dx:8px;--r:5deg;animation-delay:1s"><ellipse cx="110" cy="90" rx="38" ry="20" fill="#E3F1EE"/></g>' +
+      '<g class="drop" style="--dx:-12px;--r:-16deg;animation-delay:1.5s"><ellipse cx="72" cy="98" rx="28" ry="17" fill="#5B5BD6"/><rect x="52" y="98" width="13" height="42" rx="6" fill="#5B5BD6" transform="rotate(-22 58 118)"/></g>' +
+      '<g class="drop" style="--dx:-6px;--r:-10deg;animation-delay:2s"><ellipse cx="90" cy="82" rx="26" ry="14" fill="#C6443B"/></g>' +
+      '<g class="drop" style="--dx:10px;--r:12deg;animation-delay:2.6s"><ellipse cx="116" cy="76" rx="22" ry="12" fill="#8FD3C6"/></g>' +
+    '</svg>' +
     '<h2>Piles</h2><div class="sub" style="margin-bottom:14px">an early build · your changes are saved on this device</div>' +
     '<div class="step"><div class="n">1</div><p><b>Dump tasks in.</b> Everything lands in The Dump. No projects, no tags, no filing. Make your own piles when it helps, or never.</p></div>' +
     '<div class="step"><div class="n">2</div><p><b>What kind of time do you want help using?</b> House Reset is an example session. Create your own with a name, a length, and the pile it draws from.</p></div>' +
@@ -873,14 +948,75 @@ function renderPiles(){
     '<div style="text-align:center; margin-top:14px"><button class="linkbtn" style="color:var(--ink3)" onclick="resetDemo()">Reset demo data</button></div>';
   $("#app").innerHTML = html;
 }
+function addToDump(name){ // shared by the Piles bar and the always-on capture sheet
+  const est = guessEst(name);
+  state.tasks.push(T(name.replace(/\s*\d+\s*m$/i,"").trim(), est, "dump"));
+  return est;
+}
 function quickAdd(){
   const inp = $("#qa"); const name = (inp.value||"").trim();
   if (!name){ inp.focus(); return; }
-  const est = guessEst(name);
-  state.tasks.push(T(name.replace(/\s*\d+\s*m$/i,""), est, "dump"));
+  const est = addToDump(name);
   inp.value = "";
   renderPiles();
   toast('In The Dump · guessed '+est+' min (tap the chip to adjust or re-pile)');
+}
+
+/* ---------- always-on capture (any screen) + voice dictation ---------- */
+let capRec = null;
+function openCapture(){
+  const speech = ("SpeechRecognition" in window) || ("webkitSpeechRecognition" in window);
+  const scrim = document.createElement("div");
+  scrim.className = "scrim"; scrim.id = "capsheet";
+  scrim.onclick = e=>{ if(e.target===scrim) closeCapture(); };
+  scrim.innerHTML = '<div class="sheet fadein"><h3>Dump a task</h3>' +
+    '<div class="sub" style="margin-bottom:10px">Straight into The Dump. Sort it later, or never.</div>' +
+    '<div class="caprow">' +
+      '<input id="capin" placeholder="e.g. vacuum hallway" autocomplete="off" ' +
+        'style="border:1.5px solid var(--line);border-radius:11px;padding:11px;font-size:15px;font-family:inherit;background:#fff" ' +
+        'onkeydown="if(event.key===\'Enter\')captureCommit()">' +
+      (speech ? '<button class="mic" id="capmic" onclick="capMic()" aria-label="Dictate">🎙️</button>' : '') +
+    '</div>' +
+    '<div class="sub muted" style="margin:8px 0 12px">'+(speech
+        ? 'Tap 🎙️ to speak it — or use your keyboard’s mic.'
+        : 'Tip: tap your keyboard’s mic to speak it.')+'</div>' +
+    '<button class="btn primary" style="width:100%" onclick="captureCommit()">Add to The Dump</button></div>';
+  document.body.appendChild(scrim);
+  setTimeout(()=>{ const el=$("#capin"); if(el) el.focus(); }, 60);
+}
+function closeCapture(){
+  if(capRec){ try{capRec.stop();}catch(e){} capRec=null; }
+  const el=$("#capsheet"); if(el) el.remove();
+}
+function captureCommit(){
+  const inp = $("#capin"); if(!inp) return;
+  const name = (inp.value||"").trim();
+  if(!name){ inp.focus(); return; }
+  const est = addToDump(name);
+  closeCapture();
+  render();
+  toast('In The Dump · guessed '+est+' min');
+}
+function capMic(){
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!Ctor) return;
+  const btn = $("#capmic"), inp = $("#capin");
+  if(capRec){ try{capRec.stop();}catch(e){} capRec=null; if(btn) btn.classList.remove("on"); return; }
+  const rec = new Ctor(); capRec = rec;
+  rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
+  if(btn) btn.classList.add("on");
+  let final = "";
+  rec.onresult = e=>{
+    let interim = "";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r = e.results[i];
+      if(r.isFinal) final += r[0].transcript; else interim += r[0].transcript;
+    }
+    if(inp) inp.value = (final + interim).replace(/^\s+/,"");
+  };
+  rec.onerror = ()=>{ if(btn) btn.classList.remove("on"); capRec=null; };
+  rec.onend   = ()=>{ if(btn) btn.classList.remove("on"); capRec=null; };
+  try{ rec.start(); }catch(e){ if(btn) btn.classList.remove("on"); capRec=null; }
 }
 function openTaskSheet(id){
   const t = taskById(id); if (!t) return;
@@ -893,6 +1029,12 @@ function openTaskSheet(id){
     '<input class="valinput" id="estval" type="number" inputmode="numeric" min="1" max="240" value="'+estOf(t)+'" ' +
       'onchange="setEstInput(\''+id+'\', this.value)"> <span class="sub">min</span>' +
     '<button onclick="bumpEst(\''+id+'\',1)">+</button></div>' +
+    (t.parallel ? '<div class="sub" style="margin:2px 0 4px">Machine runs (in parallel)</div>' +
+      '<div class="stepper"><button onclick="bumpRuns(\''+id+'\',-5)">−</button>' +
+      '<input class="valinput" id="runsval" type="number" inputmode="numeric" min="5" max="180" value="'+runsOf(t)+'" ' +
+        'onchange="setRunsInput(\''+id+'\', this.value)"> <span class="sub">min</span>' +
+      '<button onclick="bumpRuns(\''+id+'\',5)">+</button></div>' +
+      '<div class="sub muted" style="margin:-2px 0 6px">Quick wash or bulky load? Set it and the plan re-times the handoff.</div>' : '') +
     '<div class="sub" style="margin-bottom:4px">Pile</div><div class="pilepick">' +
     state.piles.map(p=>'<div class="pp '+(t.pile===p.id?"on":"")+'" onclick="movePile(\''+id+'\',\''+p.id+'\')">'+esc(p.name)+'</div>').join("") +
     '</div><div class="btnrow"><button class="btn subtle" style="flex:1" onclick="deleteTask(\''+id+'\')">Delete</button>' +
@@ -900,19 +1042,33 @@ function openTaskSheet(id){
   document.body.appendChild(scrim);
 }
 function closeSheet(){ const el=$("#sheet"); if(el) el.remove(); render(); }
+function invalidatePlansFor(id){ state.sprints.forEach(sp=>{ if(sp.picked.includes(id)) sp.plan=null; }); } // force a re-sequence
 function bumpEst(id, d){
   const t = taskById(id);
   const next = Math.max(1, estOf(t) + d);
   t.est = next; delete state.learned[keyOf(t)];
   const el = $("#estval"); if (el) el.value = next;
-  saveState();
+  invalidatePlansFor(id); saveState();
 }
 function setEstInput(id, v){
   const t = taskById(id); if (!t) return;
   const n = Math.min(240, Math.max(1, parseInt(v, 10) || t.est));
   t.est = n; delete state.learned[keyOf(t)];
   const el = $("#estval"); if (el) el.value = n;
-  saveState();
+  invalidatePlansFor(id); saveState();
+}
+function bumpRuns(id, d){
+  const t = taskById(id); if(!t || !t.parallel) return;
+  t.parallel.userRuns = Math.min(180, Math.max(5, runsOf(t) + d));
+  const el = $("#runsval"); if (el) el.value = t.parallel.userRuns;
+  invalidatePlansFor(id); saveState();
+}
+function setRunsInput(id, v){
+  const t = taskById(id); if(!t || !t.parallel) return;
+  const n = Math.min(180, Math.max(5, parseInt(v, 10) || runsOf(t)));
+  t.parallel.userRuns = n;
+  const el = $("#runsval"); if (el) el.value = n;
+  invalidatePlansFor(id); saveState();
 }
 function movePile(id, pid){ taskById(id).pile = pid; closeSheet(); openTaskSheet(id); }
 function deleteTask(id){ state.tasks = state.tasks.filter(t=>t.id!==id);
@@ -981,10 +1137,16 @@ function renderFill(spId){
           '<div class="why">Washer still running.'+(w.mins>=4?' Room to slot a quick task from your piles.':'')+'</div></div></div>';
       }
       const startClock = sp.plan.times ? fmtClock(sp.start + (sp.plan.times[id]||0)).replace(/ [AP]M/,"") : "";
+      const moveCtl = (sp.plan.dryerId === id && !(sp.plan.dryerAtFloor && sp.plan.dryerAtEnd))
+        ? '<div class="movectl">move: ' +
+            '<button class="nudge" '+(sp.plan.dryerAtFloor?'disabled':'')+' onclick="event.stopPropagation();nudgeDryer(\''+sp.id+'\',-1)">◀ earlier</button>' +
+            '<button class="nudge" '+(sp.plan.dryerAtEnd?'disabled':'')+' onclick="event.stopPropagation();nudgeDryer(\''+sp.id+'\',1)">later ▶</button></div>'
+        : '';
       html += '<div class="order-row"><div class="order-num">'+(i+1)+'</div><div class="order-body" style="flex:1">' +
         '<div class="spread"><span class="nm">'+esc(t.name)+'</span><span class="est">'+estOf(t)+'m'+(L?'<span class="learnedtag"> learned</span>':'')+(startClock?' · '+startClock:'')+'</span></div>' +
         (sp.plan.why[id] ? '<div class="why">'+esc(sp.plan.why[id])+'</div>' : '') +
-        (t.parallel ? '<div class="par">⟳ runs '+t.parallel.runs+' min in parallel</div>' : '') +
+        (t.parallel ? '<div class="par" onclick="event.stopPropagation();openTaskSheet(\''+id+'\')">⟳ runs '+runsOf(t)+' min in parallel · tap to set</div>' : '') +
+        moveCtl +
         '</div><button class="addbtn on" title="remove" onclick="event.stopPropagation();toggleTask(\''+sp.id+'\',\''+id+'\')">✓</button></div>';
     });
     html += '</div><button class="btn primary" onclick="startRun(\''+sp.id+'\')">▶ Start session</button>';
@@ -1140,7 +1302,7 @@ function finishTask(outcome, simulated){
     r.results.push({id:t.id, name:t.name, base:t.est, est:estOf(t), actual, outcome:"done", simulated: !!(simulated||quickTap)});
     t.doneToday = true; // learning is deferred to the recap review, after the times are checked
     t.avoid = 0; // did it — the avoidance streak is broken, so the badge clears honestly
-    if (t.parallel) r.washerLeft = t.parallel.runs * 60;
+    if (t.parallel) r.washerLeft = runsOf(t) * 60;
   } else if (outcome === "skipped"){
     r.results.push({id:t.id, name:t.name, base:t.est, est:estOf(t), actual:null, outcome:"skipped"});
     t.avoid = (t.avoid||0) + 1; // real counter: you surfaced it and pushed it off again
