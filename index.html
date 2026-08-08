@@ -555,7 +555,7 @@ function render(){
 }
 function renderTabbar(){
   $("#tabbar").innerHTML =
-    '<button class="'+(state.screen.name==="today"?"on":"")+'" onclick="go(\'today\')"><span class="ic">☀️</span>Today</button>' +
+    '<button class="'+(state.screen.name==="today"?"on":"")+'" onclick="go(\'today\')"><span class="ic">⚡</span>Ready</button>' +
     '<button class="'+(state.screen.name==="piles"?"on":"")+'" onclick="go(\'piles\')"><span class="ic">🧺</span>Piles</button>';
 }
 function renderIntro(){
@@ -619,7 +619,7 @@ function gapCard(g){
     '<button class="btn small subtle" onclick="declineGap()">No thanks</button></div></div>';
 }
 function renderToday(){
-  let html = '<div class="spread" style="margin-bottom:14px"><div><h1>Today</h1>' +
+  let html = '<div class="spread" style="margin-bottom:14px"><div><h1>Ready</h1>' +
     '<div class="sub">Mon, Aug 3 · simulated clock <b>'+fmtClock(state.clock)+'</b></div></div></div>';
 
   const nxt = nextSession();
@@ -1110,7 +1110,7 @@ function renderFill(spId){
   const pct = Math.min(100, Math.round(filled/cap*100));
   const meterCls = over>0 ? "over" : (filled>target ? "warn" : "");
 
-  let html = '<button class="backlink" onclick="go(\'today\')">‹ Today</button>' +
+  let html = '<button class="backlink" onclick="go(\'today\')">‹ Ready</button>' +
     '<div class="spread"><div><h1>'+esc(sp.name)+'</h1><div class="sub">'+fmtRange(sp)+' · '+cap+' minutes · draws from '+esc(pileName(sp.homePile||"dump"))+'</div></div>' +
     '<button class="btn small subtle" onclick="openSessionSheet(\''+sp.id+'\')">Edit</button></div>';
 
@@ -1379,7 +1379,7 @@ function prospectiveEst(x){
   return Math.max(1, Math.round(x.base * m));
 }
 function renderReview(sp, res){
-  let html = '<button class="backlink" onclick="go(\'today\')">‹ Today</button>' +
+  let html = '<button class="backlink" onclick="go(\'today\')">‹ Ready</button>' +
     '<h1>'+esc(sp.name)+' · check the times</h1>' +
     '<div class="sub" style="margin-bottom:12px">Nothing is learned yet. Fix anything the timer got wrong, then confirm.</div><div class="card">';
   res.forEach(x=>{
@@ -1408,7 +1408,7 @@ function renderReview(sp, res){
       (x.excluded ? "Include in learning" : "Don't use for learning")+'</button></div>';
   });
   html += '</div><button class="btn primary" onclick="confirmReview(\''+sp.id+'\')">Confirm · learn from tonight</button>' +
-    '<button class="btn ghost" style="margin-top:10px" onclick="go(\'today\')">Back to Today · learning waits</button>';
+    '<button class="btn ghost" style="margin-top:10px" onclick="go(\'today\')">Back to Ready · learning waits</button>';
   $("#app").innerHTML = html;
 }
 function adjActual(spId, taskId, d){
@@ -1461,7 +1461,7 @@ function renderRecap(spId){
   const anySim = done.some(x=>x.simulated);
   const maxV = Math.max(1, ...res.map(x=>Math.max(x.est, x.actual||0)));
 
-  let html = '<button class="backlink" onclick="go(\'today\')">‹ Today</button>' +
+  let html = '<button class="backlink" onclick="go(\'today\')">‹ Ready</button>' +
     '<h1>'+esc(sp.name)+' · recap</h1>' +
     '<div class="sub" style="margin-bottom:12px">'+done.length+' of '+res.length+' tasks done · ~'+Math.round(totalAct)+' min of doing' +
     (anySim ? ' · fast-tapped tasks use simulated times' : '')+'</div><div class="card">';
@@ -1499,7 +1499,7 @@ function renderRecap(spId){
     html += '<div class="learnbox"><div class="ttl">WHAT I LEARNED TONIGHT</div>' +
       lessons.map(l=>'<div class="ln">'+esc(l)+'</div>').join("") + '</div>';
   }
-  html += '<div class="btnrow"><button class="btn ghost" onclick="go(\'today\')">Back to Today</button>' +
+  html += '<div class="btnrow"><button class="btn ghost" onclick="go(\'today\')">Back to Ready</button>' +
     '<button class="btn primary" onclick="replay(\''+spId+'\')">Replan with learned times</button></div>' +
     '<div class="sub muted" style="text-align:center;margin-top:10px">Replanning shows how tonight’s data changes tomorrow’s plan.</div>';
   $("#app").innerHTML = html;
