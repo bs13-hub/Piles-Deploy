@@ -5,13 +5,16 @@ adds an **optional** helper that makes two things smarter by calling Claude:
 
 - **✨ Tighten estimates** — sharper per-task durations than the keyword guesser.
 - **✨ Suggest piles** — smarter grouping of The Dump than keyword matching.
+- **📷 Screenshot intake** — snap or upload a screenshot of your list in another
+  app (TickTick, Reminders, Notes) and the tasks drop into The Dump. You confirm
+  the list before anything is added.
 
 It's **additive**: until you deploy this and paste the URL into `index.html`,
 the app behaves exactly as before (keyword estimates, keyword grouping). The
 model never touches the timeline math or auto-acts — it only proposes, you tap.
 
 `worker.js` is a Cloudflare Worker that holds your Anthropic API key
-server-side (a public file can't) and exposes only two fixed actions. It's
+server-side (a public file can't) and exposes only three fixed actions. It's
 stateless — no screenshots, tasks, or anything else is stored.
 
 Model: `claude-haiku-4-5` (cheap + fast; ~$1 / $5 per million tokens). Real-world
@@ -50,16 +53,18 @@ In `index.html`, set the one constant near the top of the script:
 const PROXY_URL = "https://piles-helper.<you>.workers.dev";
 ```
 
-Commit and push. The ✨ buttons appear on the Piles tab. Leave `PROXY_URL` empty
-to turn the helper off — the app falls straight back to keyword estimates.
+Commit and push. The ✨ buttons appear on the Piles tab and the 📷 screenshot
+option appears in the capture sheet. Leave `PROXY_URL` empty to turn the helper
+off — the app falls straight back to keyword estimates, keyword grouping, and
+typed/voice capture only.
 
 ---
 
 ## Notes
-- **Privacy:** task names (and later, screenshots) pass through to Claude via the
-  Worker to be processed, and are not stored. Anthropic's API does not train on
-  API data.
-- **Cost control:** the Worker caps each request at 100 tasks and one Claude call.
-  For heavier protection add a Cloudflare rate-limit rule or a KV counter.
-- **Adding screenshot intake later:** it's a third action on this same Worker
-  (vision on the same Haiku model) — no new infrastructure.
+- **Privacy:** task names and screenshots pass through to Claude via the Worker
+  to be processed, and are not stored. Anthropic's API does not train on API
+  data. Screenshots are shrunk in the browser before upload, so a full-res photo
+  never leaves the device.
+- **Cost control:** the Worker caps each request at 100 tasks, ~5MB per image,
+  and one Claude call. For heavier protection add a Cloudflare rate-limit rule
+  or a KV counter.

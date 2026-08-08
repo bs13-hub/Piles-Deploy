@@ -1084,6 +1084,9 @@ function openCapture(){
         'onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();captureCommit();}"></textarea>' +
       (speech ? '<button class="mic" id="capmic" onclick="capMic()" aria-label="Dictate">🎙️</button>' : '') +
     '</div>' +
+    (PROXY_URL ? '<input type="file" accept="image/*" id="capfile" style="display:none" onchange="capShot(event)">' +
+      '<button class="btn small violet" style="margin-top:8px" onclick="capShotPick()">📷 From a screenshot</button>' +
+      '<div class="sub muted" style="margin-top:6px">Snap or upload a screenshot of your list in TickTick, Reminders, Notes — the tasks drop in. You confirm before anything’s added.</div>' : '') +
     '<div class="sub muted" style="margin:8px 0 12px">'+(speech
         ? 'Paste a list from TickTick, Reminders, anywhere — one per line splits into separate tasks. Or tap 🎙️ and reel a few off; commas and “and” split too.'
         : 'Paste your list from any app — one per line, or comma-separated — and they all drop in. Keyboard mic works too.')+'</div>' +
@@ -1093,6 +1096,7 @@ function openCapture(){
 }
 function closeCapture(){
   if(capRec){ try{capRec.stop();}catch(e){} capRec=null; }
+  capShotTasks=null; capShotSel=null;
   const el=$("#capsheet"); if(el) el.remove();
 }
 function captureCommit(){
@@ -1125,6 +1129,59 @@ function capMic(){
   rec.onerror = ()=>{ if(btn) btn.classList.remove("on"); capRec=null; };
   rec.onend   = ()=>{ if(btn) btn.classList.remove("on"); capRec=null; };
   try{ rec.start(); }catch(e){ if(btn) btn.classList.remove("on"); capRec=null; }
+}
+
+/* ---------- screenshot intake (optional helper) — vision → preview → tap ---------- */
+let capShotTasks = null, capShotSel = null;
+function capShotPick(){ const f=$("#capfile"); if(f) f.click(); }
+function capShot(e){
+  const file = e.target && e.target.files && e.target.files[0];
+  if(!file){ return; }
+  downscaleImage(file, 1400, function(dataUrl){
+    if(!dataUrl){ toast("Couldn’t read that image."); return; }
+    sendShot(dataUrl);
+  });
+}
+// shrink client-side before upload: cheaper tokens, faster, no full-res photo leaves the phone
+function downscaleImage(file, maxDim, cb){
+  const img = new Image(); const url = URL.createObjectURL(file);
+  img.onload = function(){
+    const scale = Math.min(1, maxDim/Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width*scale)), h = Math.max(1, Math.round(img.height*scale));
+    const c = document.createElement("canvas"); c.width=w; c.height=h;
+    c.getContext("2d").drawImage(img,0,0,w,h);
+    URL.revokeObjectURL(url);
+    try{ cb(c.toDataURL("image/jpeg", 0.82)); }catch(err){ cb(null); }
+  };
+  img.onerror = function(){ URL.revokeObjectURL(url); cb(null); };
+  img.src = url;
+}
+async function sendShot(dataUrl){
+  const box = capSheetBox(); if(box) box.innerHTML = '<h3>Reading screenshot…</h3><div class="sub">Pulling the tasks out — one sec.</div>';
+  const out = await callProxy("extract-tasks", {image: dataUrl.replace(/^data:[^,]*,/, ""), mediaType: "image/jpeg"});
+  const tasks = (out && Array.isArray(out.tasks) ? out.tasks : []).map(s=>String(s).trim()).filter(Boolean);
+  if(!tasks.length){ toast("No tasks spotted in that screenshot."); closeCapture(); return; }
+  capShotTasks = tasks; capShotSel = {}; tasks.forEach((n,i)=>capShotSel[i]=true);
+  renderShotPreview();
+}
+function capSheetBox(){ const s=$("#capsheet"); return s ? s.querySelector(".sheet") : null; }
+function renderShotPreview(){
+  const box = capSheetBox(); if(!box || !capShotTasks) return;
+  const on = capShotTasks.filter((n,i)=>capShotSel[i]).length;
+  box.innerHTML = '<h3>Found '+capShotTasks.length+' task'+(capShotTasks.length===1?'':'s')+'</h3>' +
+    '<div class="sub" style="margin-bottom:10px">Untick anything that isn’t a task. Nothing’s added until you tap.</div>' +
+    capShotTasks.map((n,i)=>'<div class="task-row" onclick="capShotToggle('+i+')"><button class="addbtn '+(capShotSel[i]?'on':'')+'">'+(capShotSel[i]?'✓':'+')+'</button><span class="name">'+esc(n)+'</span></div>').join('') +
+    '<button class="btn primary" style="width:100%;margin-top:12px" onclick="capShotCommit()">Add '+on+' to The Dump</button>' +
+    '<button class="btn subtle small" style="width:100%;margin-top:6px" onclick="closeCapture()">Cancel</button>';
+}
+function capShotToggle(i){ if(!capShotSel) return; capShotSel[i] = !capShotSel[i]; renderShotPreview(); }
+function capShotCommit(){
+  const picked = (capShotTasks||[]).filter((n,i)=>capShotSel[i]);
+  capShotTasks = null; capShotSel = null;
+  if(!picked.length){ closeCapture(); return; }
+  picked.forEach(n=>addToDump(n));
+  closeCapture(); render();
+  toast(picked.length+' task'+(picked.length===1?'':'s')+' from your screenshot in The Dump');
 }
 function openTaskSheet(id){
   const t = taskById(id); if (!t) return;
