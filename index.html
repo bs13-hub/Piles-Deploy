@@ -231,6 +231,7 @@
     background:var(--accent-soft); border:1px solid #CDE7E1; border-radius:12px; padding:12px 2px; cursor:pointer;}
   .pocketbtn:active{transform:scale(.96);}
   .leftout-card{border-left:3px solid #E4B57E;}
+  .airow{display:flex; gap:8px; margin:-4px 0 14px;}
 </style>
 </head>
 <body>
@@ -948,6 +949,19 @@ function renderPiles(){
     '<div class="quickadd"><input id="qa" placeholder="Dump a task… (e.g. vacuum hallway)" ' +
       'onkeydown="if(event.key===\'Enter\')quickAdd()"><button class="btn primary small" style="width:auto" onclick="quickAdd()">Add</button></div>';
 
+  if (PROXY_URL) html += '<div class="airow">' +
+    '<button class="btn small violet" onclick="tightenEstimates()">✨ Tighten estimates</button>' +
+    '<button class="btn small violet" onclick="suggestPilesAI()">✨ Suggest piles</button></div>';
+  if (aiGroups && aiGroups.length){
+    html += '<div class="card" style="border-style:dashed"><div class="section-ttl" style="margin-top:0">SUGGESTED PILES</div>';
+    aiGroups.forEach((g,i)=>{
+      html += '<div class="leftout" style="padding:6px 2px"><b>'+esc(g.name)+'</b> · '+g.taskNames.map(esc).join(", ") +
+        ' <button class="btn small violet" style="margin-left:6px" onclick="createAIGroup('+i+')">Make it</button></div>';
+    });
+    html += '<div class="bannerbtns" style="margin-top:6px"><button class="btn small subtle" onclick="dismissAIGroups()">Dismiss</button></div>' +
+      '<div class="sub muted" style="margin-top:4px">Nothing moves unless you tap.</div></div>';
+  }
+
   const sugg = dumpSuggestion();
   state.piles.forEach(p=>{
     const ts = state.tasks.filter(t=>t.pile===p.id && !t.autoCompanion && !t.doneToday);
@@ -993,6 +1007,56 @@ function splitTasks(text){
     .map(s=>s.trim())
     .filter(Boolean);
 }
+
+/* ---------- optional Claude helper (see proxy/) — additive, tap-gated ---------- */
+const PROXY_URL = ""; // paste your deployed Worker URL to switch the ✨ helpers on
+let aiGroups = null;
+async function callProxy(action, payload){
+  if(!PROXY_URL) return null;
+  try{
+    const ctrl = new AbortController();
+    const timer = setTimeout(()=>ctrl.abort(), 12000);
+    const res = await fetch(PROXY_URL, {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(Object.assign({action}, payload)), signal: ctrl.signal});
+    clearTimeout(timer);
+    if(!res.ok) return null;
+    return await res.json();
+  }catch(e){ return null; }
+}
+async function tightenEstimates(){
+  // only tasks the user hasn't set by hand and that haven't learned from real runs
+  const cands = state.tasks.filter(t=>!t.doneToday && !t.autoCompanion && !t.parallel && !t.estUserSet && !learnedOf(t));
+  if(!cands.length){ toast("Nothing to tighten right now."); return; }
+  toast("Asking for sharper estimates…");
+  const out = await callProxy("estimate-durations", {tasks: cands.map(t=>t.name)});
+  if(!out || !Array.isArray(out.estimates)){ toast("Couldn’t reach the helper — estimates unchanged."); return; }
+  const byName = {}; out.estimates.forEach(e=>{ byName[String(e.name||"").toLowerCase()] = e.minutes; });
+  let n=0;
+  cands.forEach(t=>{ const m = byName[t.name.toLowerCase()]; if(m>=1 && m!==t.est){ t.est = Math.min(240, Math.max(1, Math.round(m))); n++; } });
+  state.sprints.forEach(sp=>{ sp.plan=null; }); // re-sequence with the new estimates
+  render();
+  toast(n ? (n+" estimate"+(n===1?"":"s")+" sharpened.") : "Estimates already looked right.");
+}
+async function suggestPilesAI(){
+  const dump = state.tasks.filter(t=>t.pile==="dump" && !t.doneToday && !t.autoCompanion);
+  if(dump.length < 3){ toast("Add a few more to The Dump first."); return; }
+  toast("Looking for natural piles…");
+  const out = await callProxy("suggest-groups", {tasks: dump.map(t=>t.name)});
+  const groups = (out && Array.isArray(out.groups) ? out.groups : [])
+    .filter(g=>g && Array.isArray(g.taskNames) && g.taskNames.length>=2).slice(0,4);
+  if(!groups.length){ toast("No clear groupings found."); return; }
+  aiGroups = groups; render();
+}
+function createAIGroup(i){
+  const g = aiGroups && aiGroups[i]; if(!g) return;
+  const pid = createPile(g.name);
+  const names = new Set(g.taskNames.map(s=>String(s).toLowerCase()));
+  let n=0;
+  state.tasks.forEach(t=>{ if(t.pile==="dump" && names.has(t.name.toLowerCase())){ t.pile=pid; n++; } });
+  aiGroups = null; render();
+  toast(n+" moved into “"+g.name+"”.");
+}
+function dismissAIGroups(){ aiGroups = null; render(); }
 function quickAdd(){
   const inp = $("#qa"); const raw = (inp.value||"").trim();
   if (!raw){ inp.focus(); return; }
@@ -1090,14 +1154,14 @@ function invalidatePlansFor(id){ state.sprints.forEach(sp=>{ if(sp.picked.includ
 function bumpEst(id, d){
   const t = taskById(id);
   const next = Math.max(1, estOf(t) + d);
-  t.est = next; delete state.learned[keyOf(t)];
+  t.est = next; t.estUserSet = true; delete state.learned[keyOf(t)];
   const el = $("#estval"); if (el) el.value = next;
   invalidatePlansFor(id); saveState();
 }
 function setEstInput(id, v){
   const t = taskById(id); if (!t) return;
   const n = Math.min(240, Math.max(1, parseInt(v, 10) || t.est));
-  t.est = n; delete state.learned[keyOf(t)];
+  t.est = n; t.estUserSet = true; delete state.learned[keyOf(t)];
   const el = $("#estval"); if (el) el.value = n;
   invalidatePlansFor(id); saveState();
 }
